@@ -11,13 +11,10 @@
   },
   "dependencies": {
     "@ant-design/icons": "~6.1.0",
-    "abcjs": "^6.2.3",
+    "abcjs": "^6.6.1",
     "antd": "^6.2.2",
-    "axios": "^1.6.2",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "tesseract.js": "^5.0.4",
-    "tone": "^14.8.49"
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.37",
