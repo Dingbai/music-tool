@@ -57,7 +57,7 @@ const MusicWorkstation: FC = () => {
   ];
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
+    <div style={{ padding: '20px', maxWidth: '88%', margin: '0 auto' }}>
       <Title level={3} style={{ textAlign: 'center' }}>
         AI 音乐助教工作站
       </Title>
