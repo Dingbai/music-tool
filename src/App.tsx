@@ -1,13 +1,11 @@
 import { useState, type FC } from 'react';
 import { Tabs, Card, Typography } from 'antd';
-import {
-  EditOutlined,
-  PlayCircleOutlined,
-  AimOutlined,
-} from '@ant-design/icons';
+import { EditOutlined } from '@ant-design/icons';
 import EditorModule from './components/EditorModule';
-import PlaybackModule from './components/PlaybackModule';
-import PracticeModule from './components/PracticeModule';
+// import PlaybackModule from './components/PlaybackModule';
+// import PracticeModule from './components/PracticeModule';
+import PerformanceModule from './components/PerformanceModule';
+import GameModule from './components/GameModule';
 
 const { Title } = Typography;
 
@@ -30,14 +28,9 @@ const MusicWorkstation: FC = () => {
     },
     {
       key: 'play',
-      label: (
-        <span>
-          <PlayCircleOutlined />
-          播放模式
-        </span>
-      ),
+      label: <span>演练模式</span>,
       children: (
-        <PlaybackModule
+        <PerformanceModule
           abcText={abcText}
           instrument={instrument}
           setInstrument={setInstrument}
@@ -45,15 +38,26 @@ const MusicWorkstation: FC = () => {
       ),
     },
     {
-      key: 'practice',
-      label: (
-        <span>
-          <AimOutlined />
-          练习模式
-        </span>
+      key: 'game',
+      label: <span>游戏模式</span>,
+      children: (
+        <GameModule
+          abcText={abcText}
+          // instrument={instrument}
+          // setInstrument={setInstrument}
+        />
       ),
-      children: <PracticeModule abcText={abcText} />,
     },
+    // {
+    //   key: 'practice',
+    //   label: (
+    //     <span>
+    //       <AimOutlined />
+    //       练习模式
+    //     </span>
+    //   ),
+    //   children: <PracticeModule abcText={abcText} />,
+    // },
   ];
 
   return (
