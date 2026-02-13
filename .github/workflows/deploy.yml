@@ -4,8 +4,17 @@ on:
   push:
     branches: [main]
 
+# 添加以下权限配置
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -14,11 +23,18 @@ jobs:
           node-version: '18'
 
       - uses: pnpm/action-setup@v2
+        with:
+          version: 8 # 建议指定 pnpm 版本避免兼容性问题
+
       - run: pnpm install
       - run: pnpm build
 
-      - uses: actions/configure-pages@v4
-      - uses: actions/upload-pages-artifact@v3
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
+          # 确认你的项目 build 后输出目录确实是 'dist'
           path: './dist'
-      - uses: actions/deploy-pages@v4
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
