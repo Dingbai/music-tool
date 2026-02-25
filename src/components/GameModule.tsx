@@ -15,7 +15,6 @@ import {
 } from 'antd';
 import {
   RocketOutlined,
-  AimOutlined,
   StopOutlined,
   TrophyOutlined,
   FireOutlined,
@@ -27,7 +26,7 @@ import {
   midiToNoteName,
 } from '../utils/pitchService'; // 引用之前的工具类
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 // 定义音符数据结构
 interface GameNote {
@@ -60,7 +59,6 @@ const GameModule: React.FC<{ abcText: string }> = ({ abcText }) => {
   const startTimeRef = useRef<number>(0);
 
   const JUDGMENT_LINE_Y = 480; // 判定线位置
-  const NOTE_WIDTH = 50;
   const TRACK_COUNT = 12; // 对应一个八度的 12 个半音
 
   // 1. 从 ABC 源码解析曲子模式的音符序列
@@ -72,16 +70,21 @@ const GameModule: React.FC<{ abcText: string }> = ({ abcText }) => {
     const notes: GameNote[] = [];
     if (!visualObj.lines) return [];
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     visualObj.lines.forEach((line: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       line.staff.forEach((staff: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         staff.voices.forEach((voice: any) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           voice.forEach((element: any) => {
             if (element.el_type === 'note' && element.midiPitches) {
               notes.push({
                 id: Math.random().toString(36),
                 midi: element.midiPitches[0].pitch,
-                timestamp: element.startMS / 1000, // 转换为秒
-                y: -50, // 初始在屏幕上方以外
+                timestamp: element.startMS / 1000,
+                y: -50,
                 hit: false,
                 missed: false,
               });
@@ -94,9 +97,11 @@ const GameModule: React.FC<{ abcText: string }> = ({ abcText }) => {
   };
 
   // 2. 音频环境初始化
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const startAudioEngine = async () => {
     if (!audioCtxRef.current)
       audioCtxRef.current = new (
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         window.AudioContext || (window as any).webkitAudioContext
       )();
     await audioCtxRef.current.resume();

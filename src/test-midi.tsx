@@ -20,9 +20,10 @@ EBBA B2 EB|B2 AB defg|afe^c dBAF|DEFD E2:|`;
       const rendered = abcjs.renderAbc(paperRef.current, abcNotation, {
         responsive: 'resize',
         add_classes: true,
-        clickListener: (abcElem: any, tuneNumber: number) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        clickListener: (abcElem: any) => {
           console.log('Note clicked:', abcElem);
-          
+
           // Check if the element has MIDI pitches
           if (abcElem.midiPitches) {
             console.log('MIDI pitches:', abcElem.midiPitches);
@@ -33,6 +34,7 @@ EBBA B2 EB|B2 AB defg|afe^c dBAF|DEFD E2:|`;
               .resume()
               .then(() => {
                 // Create a temporary synth to play the note
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const synth = new (abcjs.synth as any).CreateSynth();
                 
                 // Initialize with minimal options
@@ -51,10 +53,14 @@ EBBA B2 EB|B2 AB defg|afe^c dBAF|DEFD E2:|`;
                     synth.play(abcElem.midiPitches, abcElem.midiGraceNotePitches, 1000);
                   });
                 })
-                .catch((err: any) => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              .catch((err: any) => {
                   console.error('Synth initialization failed:', err);
                 });
               })
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
               .catch((err: any) => {
                 console.error('Audio context resume failed:', err);
               });

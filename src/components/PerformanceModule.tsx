@@ -17,13 +17,11 @@ import {
   Tag,
 } from 'antd';
 import {
-  CustomerServiceOutlined,
   DashboardOutlined,
   PlayCircleOutlined,
   StopOutlined,
   AudioOutlined,
   SettingOutlined,
-  TrophyOutlined,
 } from '@ant-design/icons';
 import ABCJS from 'abcjs';
 import {
@@ -34,7 +32,7 @@ import {
 import { INSTRUMENTS } from './instruments';
 import 'abcjs/abcjs-audio.css';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 interface PerformanceModuleProps {
   abcText: string;
@@ -52,6 +50,7 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
   const [isRecordingMode, setIsRecordingMode] = useState(false); // 是否处于练习录音模式
   const [bpm, setBpm] = useState(80);
   const [currentMidi, setCurrentMidi] = useState<number | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
@@ -59,7 +58,9 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
   const paperRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLDivElement>(null); // 播放器控件容器
   const audioCtxRef = useRef<AudioContext | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const synthControlRef = useRef<any>(null); // ABCJS 播放控制器
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const visualObjRef = useRef<any>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const requestRef = useRef<number | null>(null);
@@ -71,6 +72,7 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
       const res = ABCJS.renderAbc(paperRef.current, abcText, {
         add_classes: true,
         responsive: 'resize',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         clickListener: (abcElem: any) => {
           if (abcElem.midiPitches) {
             ABCJS.synth.playEvent(
@@ -102,6 +104,7 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
         svg.appendChild(cursor);
       }
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onEvent: (ev: any) => {
       if (ev.measureStart && ev.left === null) return;
 
@@ -109,6 +112,7 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
       const lastSelection =
         paperRef.current?.querySelectorAll('.abcjs-highlight');
       lastSelection?.forEach((el) => el.classList.remove('abcjs-highlight'));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ev.elements.forEach((noteGroup: any) => {
         noteGroup.forEach((el: HTMLElement) => {
           el.classList.add('abcjs-highlight');

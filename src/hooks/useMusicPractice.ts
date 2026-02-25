@@ -1,10 +1,14 @@
 import { useRef, useState } from 'react';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AudioContextType = any;
+
 export const useMusicPractice = () => {
-  const audioCtx = useRef(null);
-  const [bpm, setBpm] = useState(120);
+  const audioCtx = useRef<AudioContextType>(null);
+  const setBpm = useState(120)[1];
   const nextClickTime = useRef(0);
-  const timerID = useRef(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const timerID = useRef<number | null>(null);
 
   // 初始化音频上下文
   const initAudio = () => {
@@ -15,8 +19,8 @@ export const useMusicPractice = () => {
     }
   };
 
-  // 产生节拍器的“滴”声
-  const playClick = (time, isFirstBeat) => {
+  // 产生节拍器的"滴"声
+  const playClick = (time: number, isFirstBeat: boolean) => {
     const osc = audioCtx.current.createOscillator();
     const envelope = audioCtx.current.createGain();
 
@@ -31,7 +35,7 @@ export const useMusicPractice = () => {
     osc.stop(time + 0.1);
   };
 
-  const startMetronome = (targetBpm) => {
+  const startMetronome = (targetBpm: number) => {
     initAudio();
     const secondsPerBeat = 60.0 / targetBpm;
     nextClickTime.current = audioCtx.current.currentTime + 0.1;
@@ -50,5 +54,5 @@ export const useMusicPractice = () => {
     cancelAnimationFrame(timerID.current);
   };
 
-  return { initAudio, startMetronome, stopMetronome, audioCtx };
+  return { initAudio, startMetronome, stopMetronome, audioCtx, setBpm };
 };
