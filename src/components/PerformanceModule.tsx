@@ -15,6 +15,12 @@ import {
   Statistic,
   Divider,
   Tag,
+  Input,
+  Empty,
+  Tabs,
+  Upload,
+  message,
+  Tooltip,
 } from 'antd';
 import {
   DashboardOutlined,
@@ -22,6 +28,12 @@ import {
   StopOutlined,
   AudioOutlined,
   SettingOutlined,
+  BookOutlined,
+  SearchOutlined,
+  UserOutlined,
+  ExportOutlined,
+  ImportOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons';
 import ABCJS from 'abcjs';
 import {
@@ -30,6 +42,8 @@ import {
   midiToNoteName,
 } from '../utils/pitchService'; // 引用之前的工具函数
 import { INSTRUMENTS } from './instruments';
+import { songLibrary, type Song } from '../data/songLibrary';
+import { getAllSongs, addSong, type UserSong } from '../db/musicDb';
 import 'abcjs/abcjs-audio.css';
 
 const { Text } = Typography;
@@ -38,12 +52,14 @@ interface PerformanceModuleProps {
   abcText: string;
   instrument: number;
   setInstrument: (val: number) => void;
+  setAbcText?: (text: string) => void;
 }
 
 const PerformanceModule: React.FC<PerformanceModuleProps> = ({
   abcText,
   instrument,
   setInstrument,
+  setAbcText,
 }) => {
   // --- 状态管理 ---
   const [isActive, setIsActive] = useState(false); // 是否启动（由播放或练习触发）
@@ -53,6 +69,131 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  
+  // --- 曲库相关状态 ---
+  const [isLibraryVisible, setIsLibraryVisible] = useState(false);
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [selectedSong, setSelectedSong] = useState<Song | null>(null);
+  const [userSongs, setUserSongs] = useState<UserSong[]>([]);
+  const [activeLibraryTab, setActiveLibraryTab] = useState('preset');
+
+  // --- 曲库相关函数 ---
+  const filteredSongs = searchKeyword
+    ? songLibrary.filter(
+        (song) =>
+          song.title.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+          song.artist.toLowerCase().includes(searchKeyword.toLowerCase()),
+      )
+    : songLibrary;
+
+  const filteredUserSongs = searchKeyword
+    ? userSongs.filter(
+        (song) =>
+          song.title.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+          song.artist.toLowerCase().includes(searchKeyword.toLowerCase()),
+      )
+    : userSongs;
+
+  // 加载用户曲谱
+  const loadUserSongs = async () => {
+    try {
+      const songs = await getAllSongs();
+      setUserSongs(songs);
+    } catch (error) {
+      console.error('加载用户曲谱失败:', error);
+    }
+  };
+
+  const handleSelectSong = (song: Song | UserSong) => {
+    setSelectedSong(song as Song);
+    if (setAbcText) {
+      setAbcText(song.abcText);
+    }
+    setIsLibraryVisible(false);
+  };
+
+  const handleCloseLibrary = () => {
+    setIsLibraryVisible(false);
+    setSearchKeyword('');
+    setActiveLibraryTab('preset');
+  };
+
+  const handleLibraryTabChange = (key: string) => {
+    setActiveLibraryTab(key);
+    setSearchKeyword('');
+    if (key === 'user') {
+      loadUserSongs();
+    }
+  };
+
+  // 导出用户曲谱
+  const handleExportSongs = async () => {
+    try {
+      const songs = await getAllSongs();
+      if (songs.length === 0) {
+        message.warning('暂无可导出的曲谱');
+        return;
+      }
+      const exportData = {
+        version: '1.0',
+        exportDate: new Date().toISOString(),
+        songs: songs.map(({ id, ...song }) => song), // 移除数据库 ID
+      };
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+        type: 'application/json',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `music-app-songs-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      message.success(`成功导出 ${songs.length} 首曲谱`);
+    } catch (error) {
+      console.error('导出失败:', error);
+      message.error('导出失败');
+    }
+  };
+
+  // 导入用户曲谱
+  const handleImportSongs = async (file: File) => {
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      
+      if (!data.songs || !Array.isArray(data.songs)) {
+        throw new Error('文件格式不正确');
+      }
+
+      let importCount = 0;
+      for (const song of data.songs) {
+        if (!song.title || !song.abcText) {
+          continue;
+        }
+        await addSong({
+          title: song.title,
+          artist: song.artist || '未知作者',
+          abcText: song.abcText,
+          key: song.key || 'C',
+          difficulty: song.difficulty || '中等',
+        });
+        importCount++;
+      }
+
+      if (importCount > 0) {
+        message.success(`成功导入 ${importCount} 首曲谱`);
+        loadUserSongs();
+      } else {
+        message.warning('没有可导入的曲谱');
+      }
+    } catch (error: unknown) {
+      console.error('导入失败:', error);
+      message.error(`导入失败：${error instanceof Error ? error.message : '未知错误'}`);
+    }
+    return false; // 阻止默认上传行为
+  };
 
   // --- Refs ---
   const paperRef = useRef<HTMLDivElement>(null);
@@ -222,8 +363,8 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
   };
 
   return (
-    <Card bordered={false}>
-      <Space direction='vertical' size='middle' style={{ width: '100%' }}>
+    <Card variant="borderless">
+      <Space orientation='vertical' size='middle' style={{ width: '100%' }}>
         {/* 控制顶栏 */}
         <Row
           align='middle'
@@ -280,6 +421,13 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                 onChange={setIsRecordingMode}
                 disabled={isActive}
               />
+              <Button
+                icon={<BookOutlined />}
+                onClick={() => setIsLibraryVisible(true)}
+                disabled={isActive}
+              >
+                曲库
+              </Button>
             </Space>
           </Col>
         </Row>
@@ -366,6 +514,224 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
             </Text>
           </div>
         )}
+      </Modal>
+
+      {/* 曲库 Modal */}
+      <Modal
+        title={
+          <span>
+            <BookOutlined /> 曲库
+          </span>
+        }
+        open={isLibraryVisible}
+        onCancel={handleCloseLibrary}
+        footer={null}
+        width={700}
+      >
+        <Tabs
+          activeKey={activeLibraryTab}
+          onChange={handleLibraryTabChange}
+          items={[
+            {
+              key: 'preset',
+              label: (
+                <span>
+                  <BookOutlined /> 预设曲库
+                </span>
+              ),
+              children: (
+                <>
+                  <div style={{ marginBottom: 16 }}>
+                    <Input
+                      placeholder='搜索歌曲或歌手...'
+                      prefix={<SearchOutlined />}
+                      value={searchKeyword}
+                      onChange={(e) => setSearchKeyword(e.target.value)}
+                      allowClear
+                    />
+                  </div>
+                  <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                    {filteredSongs.length > 0 ? (
+                      filteredSongs.map((song) => (
+                        <div
+                          key={`preset-${song.id}`}
+                          style={{
+                            cursor: 'pointer',
+                            background:
+                              selectedSong?.id === song.id ? '#e6f7ff' : 'transparent',
+                            padding: '12px 16px',
+                            borderBottom: '1px solid #f0f0f0',
+                            transition: 'background 0.2s',
+                          }}
+                          onClick={() => handleSelectSong(song)}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#fafafa';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background =
+                              selectedSong?.id === song.id ? '#e6f7ff' : 'transparent';
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <BookOutlined style={{ color: '#1890ff' }} />
+                              <div>
+                                <div style={{ fontWeight: 500, marginBottom: '4px' }}>{song.title}</div>
+                                <Space size='small'>
+                                  <Text type='secondary'>{song.artist}</Text>
+                                  <Tag color='blue'>{song.key}调</Tag>
+                                  <Tag
+                                    color={
+                                      song.difficulty === '简单'
+                                        ? 'green'
+                                        : song.difficulty === '中等'
+                                        ? 'orange'
+                                        : 'red'
+                                    }
+                                  >
+                                    {song.difficulty}
+                                  </Tag>
+                                </Space>
+                              </div>
+                            </div>
+                            <Button
+                              type='primary'
+                              size='small'
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSelectSong(song);
+                              }}
+                            >
+                              选择
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <Empty description='未找到相关歌曲' />
+                    )}
+                  </div>
+                </>
+              ),
+            },
+            {
+              key: 'user',
+              label: (
+                <span>
+                  <UserOutlined /> 我的曲谱
+                </span>
+              ),
+              children: (
+                <>
+                  <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                    <Input
+                      placeholder='搜索歌曲或作者...'
+                      prefix={<SearchOutlined />}
+                      value={searchKeyword}
+                      onChange={(e) => setSearchKeyword(e.target.value)}
+                      allowClear
+                      style={{ flex: 1 }}
+                    />
+                    <Space>
+                      <Tooltip title='导出曲谱数据'>
+                        <Button
+                          icon={<ExportOutlined />}
+                          onClick={handleExportSongs}
+                        >
+                          导出
+                        </Button>
+                      </Tooltip>
+                      <Upload
+                        accept='.json,.abc'
+                        showUploadList={false}
+                        beforeUpload={handleImportSongs}
+                        maxCount={1}
+                      >
+                        <Button icon={<ImportOutlined />}>导入</Button>
+                      </Upload>
+                    </Space>
+                  </div>
+                  <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                    {filteredUserSongs.length > 0 ? (
+                      filteredUserSongs.map((song) => (
+                        <div
+                          key={`user-${song.id}`}
+                          style={{
+                            cursor: 'pointer',
+                            background:
+                              selectedSong?.id === song.id ? '#e6f7ff' : 'transparent',
+                            padding: '12px 16px',
+                            borderBottom: '1px solid #f0f0f0',
+                            transition: 'background 0.2s',
+                          }}
+                          onClick={() => handleSelectSong(song)}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#fafafa';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background =
+                              selectedSong?.id === song.id ? '#e6f7ff' : 'transparent';
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <UserOutlined style={{ color: '#52c41a' }} />
+                              <div>
+                                <div style={{ fontWeight: 500, marginBottom: '4px' }}>{song.title}</div>
+                                <Space size='small'>
+                                  <Text type='secondary'>{song.artist}</Text>
+                                  <Tag color='blue'>{song.key}调</Tag>
+                                  <Tag
+                                    color={
+                                      song.difficulty === '简单'
+                                        ? 'green'
+                                        : song.difficulty === '中等'
+                                        ? 'orange'
+                                        : 'red'
+                                    }
+                                  >
+                                    {song.difficulty}
+                                  </Tag>
+                                  <Text type='secondary' style={{ fontSize: 12 }}>
+                                    {new Date(song.updatedAt).toLocaleDateString('zh-CN')}
+                                  </Text>
+                                </Space>
+                              </div>
+                            </div>
+                            <Button
+                              type='primary'
+                              size='small'
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSelectSong(song);
+                              }}
+                            >
+                              选择
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <Empty description='暂无保存的曲谱，请先到编辑模式保存' />
+                    )}
+                  </div>
+                </>
+              ),
+            },
+          ]}
+        />
+        <Divider />
+        <Space direction='vertical' style={{ width: '100%' }} size='small'>
+          <Text type='secondary' style={{ fontSize: 12 }}>
+            提示：选择歌曲后将自动加载曲谱到演奏模式，点击"准备并开始"即可播放
+          </Text>
+          {activeLibraryTab === 'user' && (
+            <Text type='secondary' style={{ fontSize: 12 }}>
+              <ExportOutlined style={{ marginRight: 4 }} />
+              导出功能可用于备份曲谱数据，更换浏览器时可通过导入功能恢复
+            </Text>
+          )}
+        </Space>
       </Modal>
 
       <style>{`

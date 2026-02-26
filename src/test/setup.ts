@@ -100,3 +100,17 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: () => {},
   }),
 })
+
+// Mock URL.createObjectURL and revokeObjectURL
+const originalCreateObjectURL = URL.createObjectURL;
+const originalRevokeObjectURL = URL.revokeObjectURL;
+
+Object.defineProperty(URL, 'createObjectURL', {
+  value: vi.fn().mockReturnValue('blob:mock-url'),
+  writable: true,
+});
+
+Object.defineProperty(URL, 'revokeObjectURL', {
+  value: vi.fn(),
+  writable: true,
+});

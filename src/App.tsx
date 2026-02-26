@@ -34,6 +34,7 @@ const MusicWorkstation: FC = () => {
           abcText={abcText}
           instrument={instrument}
           setInstrument={setInstrument}
+          setAbcText={setAbcText}
         />
       ),
     },
@@ -69,7 +70,7 @@ const MusicWorkstation: FC = () => {
         <Tabs
           defaultActiveKey='edit'
           items={items}
-          destroyInactiveTabPane={false}
+          destroyOnHidden={false}
         />
       </Card>
     </div>

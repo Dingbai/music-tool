@@ -316,7 +316,7 @@ const GameModule: React.FC<{ abcText: string }> = ({ abcText }) => {
                 title='Score'
                 value={score}
                 prefix={<TrophyOutlined />}
-                valueStyle={{ color: '#cf1322' }}
+                styles={{ content: { color: '#cf1322' } }}
               />
             </div>
 
@@ -369,7 +369,7 @@ const GameModule: React.FC<{ abcText: string }> = ({ abcText }) => {
             </Button>
 
             <Alert
-              message='玩法说明'
+              title='玩法说明'
               description='音符块到达蓝色虚线时，请吹奏出对应的音符。正确匹配可获得连击加分！'
               type='info'
               showIcon
