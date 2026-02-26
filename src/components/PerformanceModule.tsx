@@ -21,6 +21,8 @@ import {
   Upload,
   message,
   Tooltip,
+  Table,
+  Descriptions,
 } from 'antd';
 import {
   DashboardOutlined,
@@ -34,16 +36,19 @@ import {
   ExportOutlined,
   ImportOutlined,
   DownloadOutlined,
+  HistoryOutlined,
+  TrophyOutlined,
+  ClockCircleOutlined,
 } from '@ant-design/icons';
 import ABCJS from 'abcjs';
 import {
   detectPitchYIN,
   freqToMidi,
   midiToNoteName,
-} from '../utils/pitchService'; // 引用之前的工具函数
+} from '../utils/pitchService';
 import { INSTRUMENTS } from './instruments';
 import { songLibrary, type Song } from '../data/songLibrary';
-import { getAllSongs, addSong, type UserSong } from '../db/musicDb';
+import { getAllSongs, addSong, addPracticeRecord, getRecentPracticeRecords, type UserSong, type PracticeRecord } from '../db/musicDb';
 import 'abcjs/abcjs-audio.css';
 
 const { Text } = Typography;
@@ -76,6 +81,11 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [userSongs, setUserSongs] = useState<UserSong[]>([]);
   const [activeLibraryTab, setActiveLibraryTab] = useState('preset');
+  
+  // --- 历史记录相关状态 ---
+  const [isHistoryVisible, setIsHistoryVisible] = useState(false);
+  const [practiceRecords, setPracticeRecords] = useState<PracticeRecord[]>([]);
+  const [practiceStartTime, setPracticeStartTime] = useState<number>(0);
 
   // --- 曲库相关函数 ---
   const filteredSongs = searchKeyword
@@ -123,6 +133,52 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
     setSearchKeyword('');
     if (key === 'user') {
       loadUserSongs();
+    }
+  };
+
+  // 加载练习记录
+  const loadPracticeRecords = async () => {
+    try {
+      const records = await getRecentPracticeRecords(50);
+      setPracticeRecords(records);
+    } catch (error) {
+      console.error('加载练习记录失败:', error);
+    }
+  };
+
+  // 打开历史记录
+  const handleOpenHistory = async () => {
+    await loadPracticeRecords();
+    setIsHistoryVisible(true);
+  };
+
+  // 开始练习时记录时间
+  const startPracticeTracking = () => {
+    setPracticeStartTime(Date.now());
+  };
+
+  // 保存练习记录
+  const savePracticeRecord = async (reportData: any) => {
+    try {
+      const duration = practiceStartTime > 0 
+        ? Math.floor((Date.now() - practiceStartTime) / 1000) 
+        : 0;
+      
+      // 从 ABC 文本中提取曲名
+      const titleMatch = abcText.match(/^T:(.+)$/m);
+      const songTitle = titleMatch ? titleMatch[1].trim() : '练习曲目';
+      
+      await addPracticeRecord({
+        songTitle,
+        score: reportData.score || 0,
+        accuracy: reportData.accuracy || 0,
+        totalNotes: reportData.total || 0,
+        hitNotes: Math.floor((reportData.score || 0) / 100 * (reportData.total || 0)),
+        duration,
+      });
+      message.success('练习记录已保存');
+    } catch (error) {
+      console.error('保存练习记录失败:', error);
     }
   };
 
@@ -302,6 +358,11 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
       if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
       await audioCtxRef.current.resume();
 
+      // 如果是练习模式，开始记录时间
+      if (isRecordingMode) {
+        startPracticeTracking();
+      }
+
       // 清理旧实例
       if (synthControlRef.current) await synthControlRef.current.disable();
 
@@ -359,7 +420,13 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
 
   const generateReport = () => {
     // 模拟报告逻辑
-    setReport({ score: 85, total: historyRef.current.length });
+    const reportData = { score: 85, total: historyRef.current.length, accuracy: 85 };
+    setReport(reportData);
+    
+    // 保存练习记录
+    if (isRecordingMode) {
+      savePracticeRecord(reportData);
+    }
   };
 
   return (
@@ -421,6 +488,12 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                 onChange={setIsRecordingMode}
                 disabled={isActive}
               />
+              <Button
+                icon={<HistoryOutlined />}
+                onClick={handleOpenHistory}
+              >
+                历史记录
+              </Button>
               <Button
                 icon={<BookOutlined />}
                 onClick={() => setIsLibraryVisible(true)}
@@ -514,6 +587,111 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
             </Text>
           </div>
         )}
+      </Modal>
+
+      {/* 练习历史记录 Modal */}
+      <Modal
+        title={
+          <span>
+            <HistoryOutlined /> 练习历史记录
+          </span>
+        }
+        open={isHistoryVisible}
+        onCancel={() => setIsHistoryVisible(false)}
+        footer={null}
+        width={800}
+      >
+        {practiceRecords.length > 0 ? (
+          <Table
+            dataSource={practiceRecords}
+            rowKey='id'
+            pagination={{ pageSize: 10, showSizeChanger: false }}
+            locale={{ emptyText: '暂无练习记录' }}
+            columns={[
+              {
+                title: '曲名',
+                dataIndex: 'songTitle',
+                key: 'songTitle',
+                render: (text: string) => <Text strong>{text}</Text>,
+              },
+              {
+                title: '得分',
+                dataIndex: 'score',
+                key: 'score',
+                render: (score: number) => (
+                  <Tag color={score >= 80 ? 'green' : score >= 60 ? 'orange' : 'red'}>
+                    {score} 分
+                  </Tag>
+                ),
+                sorter: (a, b) => a.score - b.score,
+              },
+              {
+                title: '准确率',
+                dataIndex: 'accuracy',
+                key: 'accuracy',
+                render: (accuracy: number) => `${accuracy}%`,
+                sorter: (a, b) => a.accuracy - b.accuracy,
+              },
+              {
+                title: '音符数',
+                dataIndex: 'totalNotes',
+                key: 'totalNotes',
+                render: (_: number, record: PracticeRecord) => `${record.hitNotes}/${record.totalNotes}`,
+              },
+              {
+                title: '时长',
+                dataIndex: 'duration',
+                key: 'duration',
+                render: (duration: number) => {
+                  const mins = Math.floor(duration / 60);
+                  const secs = duration % 60;
+                  return `${mins}:${secs.toString().padStart(2, '0')}`;
+                },
+                sorter: (a, b) => a.duration - b.duration,
+              },
+              {
+                title: '练习时间',
+                dataIndex: 'createdAt',
+                key: 'createdAt',
+                render: (createdAt: number) => new Date(createdAt).toLocaleString('zh-CN'),
+                sorter: (a, b) => a.createdAt - b.createdAt,
+                defaultSortOrder: 'descend',
+              },
+            ]}
+          />
+        ) : (
+          <Empty description='暂无练习记录，开始练习吧！' />
+        )}
+        <Divider />
+        <Space direction='vertical' style={{ width: '100%' }} size='small'>
+          <Text type='secondary' style={{ fontSize: 12 }}>
+            <TrophyOutlined style={{ marginRight: 4 }} />
+            练习记录会自动保存，最多显示最近 50 条记录
+          </Text>
+          {practiceRecords.length > 0 && (
+            <Button 
+              danger 
+              size='small' 
+              onClick={async () => {
+                Modal.confirm({
+                  title: '确认清空',
+                  content: '确定要清空所有练习记录吗？此操作不可恢复。',
+                  onOk: async () => {
+                    try {
+                      await import('../db/musicDb').then(m => m.clearPracticeRecords());
+                      message.success('已清空练习记录');
+                      loadPracticeRecords();
+                    } catch (error) {
+                      message.error('清空失败');
+                    }
+                  },
+                });
+              }}
+            >
+              清空历史记录
+            </Button>
+          )}
+        </Space>
       </Modal>
 
       {/* 曲库 Modal */}
