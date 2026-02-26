@@ -74,9 +74,10 @@ const GameModule: React.FC<{ abcText: string }> = ({ abcText }) => {
   const requestRef = useRef<number>();
   const currentMidiRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
+  const feedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const JUDGMENT_LINE_Y = 480;
   const TRACK_COUNT = 12;
+  const JUDGMENT_LINE_RATIO = 0.8; // 判定线在 canvas 高度的 80% 位置
 
   // 解析歌曲音符
   const parseSongNotes = () => {
@@ -106,6 +107,27 @@ const GameModule: React.FC<{ abcText: string }> = ({ abcText }) => {
     return notes;
   };
 
+  // 生成自由模式的随机音符
+  const generateRandomNotes = () => {
+    const notes: GameNote[] = [];
+    const noteCount = 30; // 生成 30 个音符
+    const duration = 30; // 30 秒
+
+    for (let i = 0; i < noteCount; i++) {
+      const timestamp = (i / noteCount) * duration;
+      const midi = 60 + Math.floor(Math.random() * 12); // C4 到 B4 之间的随机音符
+      notes.push({
+        id: Math.random().toString(36),
+        midi,
+        timestamp,
+        y: -50,
+        hit: false,
+        missed: false,
+      });
+    }
+    return notes;
+  };
+
   // 音频引擎
   const startAudioEngine = async () => {
     if (!audioCtxRef.current)
@@ -124,21 +146,24 @@ const GameModule: React.FC<{ abcText: string }> = ({ abcText }) => {
     if (!canvas || !isPlaying) return;
     const ctx = canvas.getContext('2d')!;
     const currentTime = (performance.now() - startTimeRef.current) / 1000;
+    const judgmentLineY = canvas.height * JUDGMENT_LINE_RATIO;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#1a1a1a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    // 绘制轨道
     for (let i = 0; i < TRACK_COUNT; i++) {
       ctx.strokeStyle = '#333';
       ctx.strokeRect(i * (canvas.width / TRACK_COUNT), 0, canvas.width / TRACK_COUNT, canvas.height);
     }
 
+    // 绘制判定线
     ctx.strokeStyle = '#1890ff';
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(0, JUDGMENT_LINE_Y);
-    ctx.lineTo(canvas.width, JUDGMENT_LINE_Y);
+    ctx.moveTo(0, judgmentLineY);
+    ctx.lineTo(canvas.width, judgmentLineY);
     ctx.stroke();
 
     // 更新和绘制音符
@@ -150,11 +175,11 @@ const GameModule: React.FC<{ abcText: string }> = ({ abcText }) => {
         const trackIndex = (note.midi % 12) % TRACK_COUNT;
         const x = trackIndex * trackWidth;
 
-        ctx.fillStyle = note.hit ? '#52c41a' : '#1890ff';
+        ctx.fillStyle = '#1890ff';
         ctx.fillRect(x + 5, note.y - 30, trackWidth - 10, 30);
 
         // 判定
-        if (Math.abs(note.y - JUDGMENT_LINE_Y) < 50 && !note.hit) {
+        if (Math.abs(note.y - judgmentLineY) < 50 && !note.hit) {
           const detectedFreq = analyserRef.current
             ? detectPitchYIN(new Float32Array(2048), audioCtxRef.current?.sampleRate || 44100)
             : null;
@@ -178,11 +203,11 @@ const GameModule: React.FC<{ abcText: string }> = ({ abcText }) => {
       ctx.fillStyle = feedback.color;
       ctx.font = 'bold 48px Arial';
       ctx.textAlign = 'center';
-      ctx.fillText(feedback.text, canvas.width / 2, JUDGMENT_LINE_Y - 50);
+      ctx.fillText(feedback.text, canvas.width / 2, judgmentLineY - 50);
     }
 
     requestRef.current = requestAnimationFrame(render);
-  }, [isPlaying, speed, gameMode, feedback]);
+  }, [isPlaying, speed, feedback]);
 
   const handleHit = () => {
     setScore((s) => s + 100);
@@ -246,7 +271,14 @@ const GameModule: React.FC<{ abcText: string }> = ({ abcText }) => {
 
   const startGame = async () => {
     await startAudioEngine();
-    notesRef.current = gameMode === 'song' ? parseSongNotes() : [];
+    // 自由模式生成随机音符，曲谱模式解析 ABC 曲谱
+    notesRef.current = gameMode === 'song' ? parseSongNotes() : generateRandomNotes();
+    
+    if (notesRef.current.length === 0) {
+      message.warning('当前没有可玩的音符，请在编辑模式添加内容或选择有曲谱的模式');
+      return;
+    }
+    
     setScore(0);
     setCombo(0);
     startGameTracking();
@@ -271,6 +303,27 @@ const GameModule: React.FC<{ abcText: string }> = ({ abcText }) => {
     };
   }, [isPlaying, render]);
 
+  // 处理 canvas 尺寸调整
+  useEffect(() => {
+    const container = document.getElementById('game-canvas-container');
+    const canvas = canvasRef.current;
+    
+    if (!container || !canvas) return;
+
+    const resizeCanvas = () => {
+      const rect = container.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+    };
+
+    resizeCanvas();
+    
+    const observer = new ResizeObserver(resizeCanvas);
+    observer.observe(container);
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <Card
       title={
@@ -289,8 +342,27 @@ const GameModule: React.FC<{ abcText: string }> = ({ abcText }) => {
     >
       <Row gutter={24}>
         <Col span={16}>
-          <div style={{ position: 'relative', background: '#000', borderRadius: '12px', border: '4px solid #333', overflow: 'hidden' }}>
-            <canvas ref={canvasRef} width={600} height={500} style={{ display: 'block' }} />
+          <div 
+            id="game-canvas-container"
+            style={{ 
+              position: 'relative', 
+              background: '#000', 
+              borderRadius: '12px', 
+              border: '4px solid #333', 
+              overflow: 'hidden',
+              height: '500px',
+            }}
+          >
+            <canvas 
+              ref={canvasRef} 
+              width={600} 
+              height={500} 
+              style={{ 
+                display: 'block',
+                width: '100%',
+                height: '100%',
+              }} 
+            />
             {!isPlaying && (
               <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', color: '#fff' }}>
                 <RocketOutlined style={{ fontSize: 64, marginBottom: 16 }} />
