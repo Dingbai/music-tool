@@ -300,18 +300,18 @@ const GameModule: React.FC<{ abcText: string }> = ({ abcText }) => {
           </div>
         </Col>
         <Col span={8}>
-          <Space direction='vertical' style={{ width: '100%' }} size='middle'>
+          <Space orientation='vertical' style={{ width: '100%' }} size='middle'>
             <div style={{ display: 'flex', gap: 16 }}>
               <div style={{ flex: 1, background: 'linear-gradient(135deg, #667eea, #764ba2)', padding: 20, borderRadius: 12, color: '#fff' }}>
-                <Statistic title='得分' value={score} prefix={<TrophyOutlined />} valueStyle={{ color: '#fff' }} />
+                <Statistic title='得分' value={score} prefix={<TrophyOutlined />} styles={{ content: { color: '#fff' } }} />
               </div>
               <div style={{ flex: 1, background: 'linear-gradient(135deg, #f093fb, #f5576c)', padding: 20, borderRadius: 12, color: '#fff' }}>
-                <Statistic title='连击' value={combo} prefix={<FireOutlined />} valueStyle={{ color: '#fff' }} />
+                <Statistic title='连击' value={combo} prefix={<FireOutlined />} styles={{ content: { color: '#fff' } }} />
               </div>
             </div>
 
             <Card size='small' title='游戏设置'>
-              <Space direction='vertical' style={{ width: '100%' }}>
+              <Space orientation='vertical' style={{ width: '100%' }}>
                 <Text strong>模式选择</Text>
                 <Radio.Group value={gameMode} onChange={(e) => setGameMode(e.target.value)} disabled={isPlaying} block>
                   <Radio value='single'>自由模式</Radio>
@@ -322,7 +322,7 @@ const GameModule: React.FC<{ abcText: string }> = ({ abcText }) => {
               </Space>
             </Card>
 
-            <Space direction='vertical' style={{ width: '100%' }}>
+            <Space orientation='vertical' style={{ width: '100%' }}>
               {!isPlaying ? (
                 <Button type='primary' size='large' block icon={<RocketOutlined />} onClick={startGame}>
                   开始挑战
@@ -427,7 +427,7 @@ const GameModule: React.FC<{ abcText: string }> = ({ abcText }) => {
           <Empty description='暂无游戏记录，开始挑战吧！' />
         )}
         <Divider />
-        <Space direction='vertical' style={{ width: '100%' }} size='small'>
+        <Space orientation='vertical' style={{ width: '100%' }} size='small'>
           <Text type='secondary' style={{ fontSize: 12 }}>
             <TrophyOutlined style={{ marginRight: 4 }} />
             游戏记录会自动保存，最多显示最近 50 条记录
