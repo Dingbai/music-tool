@@ -254,6 +254,11 @@ const GameModule: React.FC<{ abcText: string }> = ({ abcText }) => {
   const saveGameRecord = async () => {
     try {
       const duration = gameStartTime > 0 ? Math.floor((Date.now() - gameStartTime) / 1000) : 0;
+
+      // 计算准确率
+      const total = hitCount + missCount;
+      const accuracy = total > 0 ? Math.round((hitCount / total) * 100) : 0;
+
       await addGameRecord({
         gameMode,
         score,

@@ -22,7 +22,6 @@ import {
   message,
   Tooltip,
   Table,
-  Descriptions,
 } from 'antd';
 import {
   DashboardOutlined,
@@ -35,10 +34,8 @@ import {
   UserOutlined,
   ExportOutlined,
   ImportOutlined,
-  DownloadOutlined,
   HistoryOutlined,
   TrophyOutlined,
-  ClockCircleOutlined,
 } from '@ant-design/icons';
 import ABCJS from 'abcjs';
 import {
@@ -48,7 +45,14 @@ import {
 } from '../utils/pitchService';
 import { INSTRUMENTS } from './instruments';
 import { songLibrary, type Song } from '../data/songLibrary';
-import { getAllSongs, addSong, addPracticeRecord, getRecentPracticeRecords, type UserSong, type PracticeRecord } from '../db/musicDb';
+import {
+  getAllSongs,
+  addSong,
+  addPracticeRecord,
+  getRecentPracticeRecords,
+  type UserSong,
+  type PracticeRecord,
+} from '../db/musicDb';
 import 'abcjs/abcjs-audio.css';
 
 const { Text } = Typography;
@@ -74,14 +78,14 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  
+
   // --- 曲库相关状态 ---
   const [isLibraryVisible, setIsLibraryVisible] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [userSongs, setUserSongs] = useState<UserSong[]>([]);
   const [activeLibraryTab, setActiveLibraryTab] = useState('preset');
-  
+
   // --- 历史记录相关状态 ---
   const [isHistoryVisible, setIsHistoryVisible] = useState(false);
   const [practiceRecords, setPracticeRecords] = useState<PracticeRecord[]>([]);
@@ -158,22 +162,28 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
   };
 
   // 保存练习记录
-  const savePracticeRecord = async (reportData: any) => {
+  const savePracticeRecord = async (reportData: {
+    score: number;
+    accuracy: number;
+    total: number;
+    hitCount?: number;
+  }) => {
     try {
-      const duration = practiceStartTime > 0 
-        ? Math.floor((Date.now() - practiceStartTime) / 1000) 
-        : 0;
-      
+      const duration =
+        practiceStartTime > 0
+          ? Math.floor((Date.now() - practiceStartTime) / 1000)
+          : 0;
+
       // 从 ABC 文本中提取曲名
       const titleMatch = abcText.match(/^T:(.+)$/m);
       const songTitle = titleMatch ? titleMatch[1].trim() : '练习曲目';
-      
+
       await addPracticeRecord({
         songTitle,
         score: reportData.score || 0,
         accuracy: reportData.accuracy || 0,
         totalNotes: reportData.total || 0,
-        hitNotes: Math.floor((reportData.score || 0) / 100 * (reportData.total || 0)),
+        hitNotes: reportData.hitCount || 0,
         duration,
       });
       message.success('练习记录已保存');
@@ -218,7 +228,7 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
     try {
       const text = await file.text();
       const data = JSON.parse(text);
-      
+
       if (!data.songs || !Array.isArray(data.songs)) {
         throw new Error('文件格式不正确');
       }
@@ -246,7 +256,9 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
       }
     } catch (error: unknown) {
       console.error('导入失败:', error);
-      message.error(`导入失败：${error instanceof Error ? error.message : '未知错误'}`);
+      message.error(
+        `导入失败：${error instanceof Error ? error.message : '未知错误'}`,
+      );
     }
     return false; // 阻止默认上传行为
   };
@@ -261,7 +273,8 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
   const visualObjRef = useRef<any>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const requestRef = useRef<number | null>(null);
-  const historyRef = useRef<{ expected: number; actual: number }[]>([]);
+  const historyRef = useRef<Array<{ expected: number; actual: number; hit: boolean }>>([]);
+  const currentExpectedNoteRef = useRef<number | null>(null); // 当前应该演奏的音符
 
   // 1. 初始化/更新乐谱渲染
   useEffect(() => {
@@ -313,9 +326,16 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
       ev.elements.forEach((noteGroup: any) => {
         noteGroup.forEach((el: HTMLElement) => {
           el.classList.add('abcjs-highlight');
-          // 练习模式下，如果是正在处理的音符，且我们有识别到 MIDI
-          if (isRecordingMode && currentMidi) {
-            // 这里可以添加更复杂的实时对比变色逻辑
+          // 练习模式下，设置当前应该演奏的音符
+          if (isRecordingMode) {
+            // 从元素中获取 MIDI 音符信息
+            const midiNotes = el.getAttribute('data-midi');
+            if (midiNotes) {
+              const notes = midiNotes.split(',').map((n: string) => parseInt(n.trim(), 10));
+              if (notes.length > 0 && !isNaN(notes[0])) {
+                currentExpectedNoteRef.current = notes[0];
+              }
+            }
           }
         });
       });
@@ -345,7 +365,13 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
       if (freq && freq > 60) {
         const midi = freqToMidi(freq);
         setCurrentMidi(midi);
-        historyRef.current.push({ expected: 60, actual: midi }); // 简化逻辑
+        // 获取当前应该演奏的音符 (从 cursorControl 的 onEvent 中获取)
+        const expectedMidi = currentExpectedNoteRef.current;
+        if (expectedMidi !== null) {
+          // 判断是否命中 (允许±1 个半音的误差)
+          const hit = Math.abs(midi - expectedMidi) <= 1;
+          historyRef.current.push({ expected: expectedMidi, actual: midi, hit });
+        }
       }
     }
     requestRef.current = requestAnimationFrame(analyzePitch);
@@ -419,10 +445,40 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
   };
 
   const generateReport = () => {
-    // 模拟报告逻辑
-    const reportData = { score: 85, total: historyRef.current.length, accuracy: 85 };
+    // 计算真实的练习报告数据
+    const history = historyRef.current;
+    const total = history.length;
+
+    if (total === 0) {
+      const reportData = {
+        score: 0,
+        total: 0,
+        accuracy: 0,
+      };
+      setReport(reportData);
+      return;
+    }
+
+    // 计算命中数
+    const hitCount = history.filter((record) => record.hit).length;
+    const missCount = total - hitCount;
+
+    // 计算准确率 (命中数 / 总音符数)
+    const accuracy = Math.round((hitCount / total) * 100);
+
+    // 计算得分 (基于准确率，满分 100)
+    const score = accuracy;
+
+    const reportData = {
+      score,
+      total,
+      accuracy,
+      hitCount,
+      missCount,
+    };
+
     setReport(reportData);
-    
+
     // 保存练习记录
     if (isRecordingMode) {
       savePracticeRecord(reportData);
@@ -430,7 +486,7 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
   };
 
   return (
-    <Card variant="borderless">
+    <Card variant='borderless'>
       <Space orientation='vertical' size='middle' style={{ width: '100%' }}>
         {/* 控制顶栏 */}
         <Row
@@ -488,10 +544,7 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                 onChange={setIsRecordingMode}
                 disabled={isActive}
               />
-              <Button
-                icon={<HistoryOutlined />}
-                onClick={handleOpenHistory}
-              >
+              <Button icon={<HistoryOutlined />} onClick={handleOpenHistory}>
                 历史记录
               </Button>
               <Button
@@ -580,10 +633,41 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
         {report && (
           <div style={{ textAlign: 'center' }}>
             <Statistic title='练习得分' value={report.score} suffix='/ 100' />
-            <Progress percent={report.score} status='active' />
+            <Progress
+              percent={report.score}
+              status={report.score >= 80 ? 'success' : report.score >= 60 ? 'active' : 'exception'}
+            />
+            <Row gutter={16} style={{ marginTop: 24 }}>
+              <Col span={8}>
+                <Statistic
+                  title='总音符数'
+                  value={report.total}
+                  valueStyle={{ fontSize: 16 }}
+                />
+              </Col>
+              <Col span={8}>
+                <Statistic
+                  title='命中数'
+                  value={report.hitCount || 0}
+                  valueStyle={{ fontSize: 16, color: '#52c41a' }}
+                />
+              </Col>
+              <Col span={8}>
+                <Statistic
+                  title='未命中数'
+                  value={report.missCount || 0}
+                  valueStyle={{ fontSize: 16, color: '#ff4d4f' }}
+                />
+              </Col>
+            </Row>
             <Divider />
             <Text type='secondary'>
-              基于您的演奏准确度，本次表现：<Text strong>优秀</Text>
+              准确率：{report.accuracy}% |{' '}
+              {report.score >= 80
+                ? '表现优秀！🎉'
+                : report.score >= 60
+                ? '表现良好，继续努力！💪'
+                : '需要更多练习哦！📚'}
             </Text>
           </div>
         )}
@@ -619,7 +703,11 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                 dataIndex: 'score',
                 key: 'score',
                 render: (score: number) => (
-                  <Tag color={score >= 80 ? 'green' : score >= 60 ? 'orange' : 'red'}>
+                  <Tag
+                    color={
+                      score >= 80 ? 'green' : score >= 60 ? 'orange' : 'red'
+                    }
+                  >
                     {score} 分
                   </Tag>
                 ),
@@ -636,7 +724,8 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                 title: '音符数',
                 dataIndex: 'totalNotes',
                 key: 'totalNotes',
-                render: (_: number, record: PracticeRecord) => `${record.hitNotes}/${record.totalNotes}`,
+                render: (_: number, record: PracticeRecord) =>
+                  `${record.hitNotes}/${record.totalNotes}`,
               },
               {
                 title: '时长',
@@ -653,7 +742,8 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                 title: '练习时间',
                 dataIndex: 'createdAt',
                 key: 'createdAt',
-                render: (createdAt: number) => new Date(createdAt).toLocaleString('zh-CN'),
+                render: (createdAt: number) =>
+                  new Date(createdAt).toLocaleString('zh-CN'),
                 sorter: (a, b) => a.createdAt - b.createdAt,
                 defaultSortOrder: 'descend',
               },
@@ -669,16 +759,18 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
             练习记录会自动保存，最多显示最近 50 条记录
           </Text>
           {practiceRecords.length > 0 && (
-            <Button 
-              danger 
-              size='small' 
+            <Button
+              danger
+              size='small'
               onClick={async () => {
                 Modal.confirm({
                   title: '确认清空',
                   content: '确定要清空所有练习记录吗？此操作不可恢复。',
                   onOk: async () => {
                     try {
-                      await import('../db/musicDb').then(m => m.clearPracticeRecords());
+                      await import('../db/musicDb').then((m) =>
+                        m.clearPracticeRecords(),
+                      );
                       message.success('已清空练习记录');
                       loadPracticeRecords();
                     } catch (error) {
@@ -736,7 +828,9 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                           style={{
                             cursor: 'pointer',
                             background:
-                              selectedSong?.id === song.id ? '#e6f7ff' : 'transparent',
+                              selectedSong?.id === song.id
+                                ? '#e6f7ff'
+                                : 'transparent',
                             padding: '12px 16px',
                             borderBottom: '1px solid #f0f0f0',
                             transition: 'background 0.2s',
@@ -747,14 +841,35 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                           }}
                           onMouseLeave={(e) => {
                             e.currentTarget.style.background =
-                              selectedSong?.id === song.id ? '#e6f7ff' : 'transparent';
+                              selectedSong?.id === song.id
+                                ? '#e6f7ff'
+                                : 'transparent';
                           }}
                         >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                              }}
+                            >
                               <BookOutlined style={{ color: '#1890ff' }} />
                               <div>
-                                <div style={{ fontWeight: 500, marginBottom: '4px' }}>{song.title}</div>
+                                <div
+                                  style={{
+                                    fontWeight: 500,
+                                    marginBottom: '4px',
+                                  }}
+                                >
+                                  {song.title}
+                                </div>
                                 <Space size='small'>
                                   <Text type='secondary'>{song.artist}</Text>
                                   <Tag color='blue'>{song.key}调</Tag>
@@ -763,8 +878,8 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                                       song.difficulty === '简单'
                                         ? 'green'
                                         : song.difficulty === '中等'
-                                        ? 'orange'
-                                        : 'red'
+                                          ? 'orange'
+                                          : 'red'
                                     }
                                   >
                                     {song.difficulty}
@@ -801,7 +916,14 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
               ),
               children: (
                 <>
-                  <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                  <div
+                    style={{
+                      marginBottom: 16,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: '12px',
+                    }}
+                  >
                     <Input
                       placeholder='搜索歌曲或作者...'
                       prefix={<SearchOutlined />}
@@ -837,7 +959,9 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                           style={{
                             cursor: 'pointer',
                             background:
-                              selectedSong?.id === song.id ? '#e6f7ff' : 'transparent',
+                              selectedSong?.id === song.id
+                                ? '#e6f7ff'
+                                : 'transparent',
                             padding: '12px 16px',
                             borderBottom: '1px solid #f0f0f0',
                             transition: 'background 0.2s',
@@ -848,14 +972,35 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                           }}
                           onMouseLeave={(e) => {
                             e.currentTarget.style.background =
-                              selectedSong?.id === song.id ? '#e6f7ff' : 'transparent';
+                              selectedSong?.id === song.id
+                                ? '#e6f7ff'
+                                : 'transparent';
                           }}
                         >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                              }}
+                            >
                               <UserOutlined style={{ color: '#52c41a' }} />
                               <div>
-                                <div style={{ fontWeight: 500, marginBottom: '4px' }}>{song.title}</div>
+                                <div
+                                  style={{
+                                    fontWeight: 500,
+                                    marginBottom: '4px',
+                                  }}
+                                >
+                                  {song.title}
+                                </div>
                                 <Space size='small'>
                                   <Text type='secondary'>{song.artist}</Text>
                                   <Tag color='blue'>{song.key}调</Tag>
@@ -864,14 +1009,19 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                                       song.difficulty === '简单'
                                         ? 'green'
                                         : song.difficulty === '中等'
-                                        ? 'orange'
-                                        : 'red'
+                                          ? 'orange'
+                                          : 'red'
                                     }
                                   >
                                     {song.difficulty}
                                   </Tag>
-                                  <Text type='secondary' style={{ fontSize: 12 }}>
-                                    {new Date(song.updatedAt).toLocaleDateString('zh-CN')}
+                                  <Text
+                                    type='secondary'
+                                    style={{ fontSize: 12 }}
+                                  >
+                                    {new Date(
+                                      song.updatedAt,
+                                    ).toLocaleDateString('zh-CN')}
                                   </Text>
                                 </Space>
                               </div>
