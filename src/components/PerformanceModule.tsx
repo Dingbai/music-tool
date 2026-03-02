@@ -594,7 +594,7 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                 <Statistic
                   title='实时监测音高'
                   value={currentMidi ? midiToNoteName(currentMidi) : '--'}
-                  valueStyle={{ color: '#3f8600' }}
+                  styles={{ content: { color: '#3f8600' } }}
                 />
                 <Badge
                   status='processing'
@@ -642,21 +642,21 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                 <Statistic
                   title='总音符数'
                   value={report.total}
-                  valueStyle={{ fontSize: 16 }}
+                  styles={{ content: { fontSize: 16 } }}
                 />
               </Col>
               <Col span={8}>
                 <Statistic
                   title='命中数'
                   value={report.hitCount || 0}
-                  valueStyle={{ fontSize: 16, color: '#52c41a' }}
+                  styles={{ content: { fontSize: 16, color: '#52c41a' } }}
                 />
               </Col>
               <Col span={8}>
                 <Statistic
                   title='未命中数'
                   value={report.missCount || 0}
-                  valueStyle={{ fontSize: 16, color: '#ff4d4f' }}
+                  styles={{ content: { fontSize: 16, color: '#ff4d4f' } }}
                 />
               </Col>
             </Row>
