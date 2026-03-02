@@ -125,6 +125,31 @@
   stroke-width: 2px;
 }
 
+/* 已播放音符的背景色 - 练习模式 */
+.abcjs-played {
+  transition: fill 0.3s ease;
+}
+
+.abcjs-played .abcjs-note,
+.abcjs-played .abcjs-rest,
+.abcjs-played .abcjs-beam,
+.abcjs-played .abcjs-stem,
+.abcjs-played .abcjs-head {
+  fill: rgba(82, 196, 26, 0.15) !important;
+}
+
+/* 练习模式下已播放音符高亮 */
+.abcjs-played.abcjs-note {
+  fill: rgba(82, 196, 26, 0.2) !important;
+  stroke: rgba(82, 196, 26, 0.5) !important;
+}
+
+/* 播放模式下已播放音符高亮 */
+.abcjs-played.abcjs-note.playback-mode {
+  fill: rgba(24, 144, 255, 0.15) !important;
+  stroke: rgba(24, 144, 255, 0.4) !important;
+}
+
 .abcjs-note,
 .abcjs-beam,
 .abcjs-slur {

@@ -17,9 +17,8 @@ import {
   type UserSong,
   type PracticeRecord,
 } from '../db/musicDb';
-import { songLibrary, type Song } from '../data/songLibrary';
-import { detectPitchYIN, freqToMidi, midiToNoteName } from '../utils/pitchService';
-import PerformanceCanvas from './performance/PerformanceCanvas';
+import { type Song } from '../data/songLibrary';
+import { detectPitchYIN, freqToMidi } from '../utils/pitchService';
 import PerformanceStats from './performance/PerformanceStats';
 import PerformanceSettings from './performance/PerformanceSettings';
 import PracticeReport from './performance/PracticeReport';
@@ -29,8 +28,8 @@ import {
   calculateAccuracy,
   calculateScore,
   extractTitleFromAbc,
-  formatDuration,
 } from './performance/utils';
+import 'abcjs/abcjs-audio.css';
 
 interface PerformanceModuleProps {
   abcText: string;
@@ -81,7 +80,9 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
   const visualObjRef = useRef<unknown>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const requestRef = useRef<number | null>(null);
-  const historyRef = useRef<Array<{ expected: number; actual: number; hit: boolean }>>([]);
+  const historyRef = useRef<
+    Array<{ expected: number; actual: number; hit: boolean }>
+  >([]);
   const currentExpectedNoteRef = useRef<number | null>(null);
 
   // --- 曲库相关函数 ---
@@ -228,7 +229,9 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
       }
     } catch (error: unknown) {
       console.error('导入失败:', error);
-      message.error(`导入失败：${error instanceof Error ? error.message : '未知错误'}`);
+      message.error(
+        `导入失败：${error instanceof Error ? error.message : '未知错误'}`,
+      );
     }
     return false;
   };
@@ -255,6 +258,7 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
     onStart: () => {
       const svg = paperRef.current?.querySelector('svg');
       if (svg && !svg.querySelector('.abcjs-cursor')) {
+        // 创建光标
         const cursor = document.createElementNS(
           'http://www.w3.org/2000/svg',
           'line',
@@ -269,17 +273,25 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
     onEvent: (ev: any) => {
       if (ev.measureStart && ev.left === null) return;
 
-      const lastSelection = paperRef.current?.querySelectorAll('.abcjs-highlight');
-      lastSelection?.forEach((el) => el.classList.remove('abcjs-highlight'));
+      // 移除当前光标高亮，但保留已播放音符的背景色
+      const cursor = paperRef.current?.querySelector('.abcjs-cursor');
       
+      // 为当前音符添加高亮（光标位置）
+      const lastSelection =
+        paperRef.current?.querySelectorAll('.abcjs-highlight');
+      lastSelection?.forEach((el) => el.classList.remove('abcjs-highlight'));
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ev.elements.forEach((noteGroup: any) => {
         noteGroup.forEach((el: HTMLElement) => {
-          el.classList.add('abcjs-highlight');
+          // 添加已播放标记和背景色
+          el.classList.add('abcjs-played');
           if (isRecordingMode) {
             const midiNotes = el.getAttribute('data-midi');
             if (midiNotes) {
-              const notes = midiNotes.split(',').map((n: string) => parseInt(n.trim(), 10));
+              const notes = midiNotes
+                .split(',')
+                .map((n: string) => parseInt(n.trim(), 10));
               if (notes.length > 0 && !isNaN(notes[0])) {
                 currentExpectedNoteRef.current = notes[0];
               }
@@ -288,7 +300,7 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
         });
       });
 
-      const cursor = paperRef.current?.querySelector('.abcjs-cursor');
+      // 移动光标
       if (cursor) {
         cursor.setAttribute('x1', (ev.left - 2).toString());
         cursor.setAttribute('x2', (ev.left - 2).toString());
@@ -297,9 +309,16 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
       }
     },
     onFinished: () => {
-      paperRef.current
-        ?.querySelectorAll('.abcjs-highlight')
-        .forEach((el) => el.classList.remove('abcjs-highlight'));
+      // 播放结束后移除光标和已播放标记
+      const cursor = paperRef.current?.querySelector('.abcjs-cursor');
+      if (cursor) {
+        cursor.remove();
+      }
+      
+      // 可选：播放结束后清除已播放标记
+      // 如果想保留已播放标记直到用户停止，可以注释掉下面的代码
+      const playedElements = paperRef.current?.querySelectorAll('.abcjs-played');
+      playedElements?.forEach((el) => el.classList.remove('abcjs-played'));
     },
   };
 
@@ -315,7 +334,11 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
         const expectedMidi = currentExpectedNoteRef.current;
         if (expectedMidi !== null) {
           const hit = Math.abs(midi - expectedMidi) <= 1;
-          historyRef.current.push({ expected: expectedMidi, actual: midi, hit });
+          historyRef.current.push({
+            expected: expectedMidi,
+            actual: midi,
+            hit,
+          });
         }
       }
     }
@@ -386,6 +409,11 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
       (synthControlRef.current as any).pause();
     }
     if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    
+    // 清除已播放标记
+    const playedElements = paperRef.current?.querySelectorAll('.abcjs-played');
+    playedElements?.forEach((el) => el.classList.remove('abcjs-played'));
+    
     if (isRecordingMode) {
       generateReport();
       setShowReport(true);
@@ -446,6 +474,11 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
       const res = ABCJS.renderAbc(paperRef.current, abcText, {
         add_classes: true,
         responsive: 'resize',
+        // 添加自定义类名，便于样式控制
+        classes: {
+          note: 'abcjs-note',
+          rest: 'abcjs-rest',
+        },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         clickListener: (abcElem: any) => {
           if (abcElem.midiPitches) {
@@ -469,13 +502,14 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
     };
   }, []);
 
-  const duration = practiceStartTime > 0
-    ? Math.floor((Date.now() - practiceStartTime) / 1000)
-    : 0;
+  const duration =
+    practiceStartTime > 0
+      ? Math.floor((Date.now() - practiceStartTime) / 1000)
+      : 0;
 
   return (
-    <Card variant="borderless">
-      <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+    <Card variant='borderless'>
+      <Space direction='vertical' size='middle' style={{ width: '100%' }}>
         {/* 顶部状态栏 */}
         <div
           style={{
@@ -492,7 +526,8 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
               }}
             />
             <span>
-              <AudioOutlined /> 音色：{INSTRUMENTS.find((i) => i.id === instrument)?.name || '未知'}
+              <AudioOutlined /> 音色：
+              {INSTRUMENTS.find((i) => i.id === instrument)?.name || '未知'}
             </span>
             <span>
               <BookOutlined /> BPM: {bpm}
@@ -521,8 +556,8 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
         <div style={{ textAlign: 'center' }}>
           {!isActive ? (
             <Button
-              type="primary"
-              size="large"
+              type='primary'
+              size='large'
               icon={<PlayCircleOutlined />}
               onClick={setupAudio}
               loading={loading}
@@ -531,9 +566,9 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
             </Button>
           ) : (
             <Button
-              type="primary"
+              type='primary'
               danger
-              size="large"
+              size='large'
               icon={<StopOutlined />}
               onClick={handleStop}
             >
@@ -543,7 +578,9 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
         </div>
 
         {/* 设置和统计 */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div
+          style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}
+        >
           <PerformanceSettings
             bpm={bpm}
             instrument={instrument}
