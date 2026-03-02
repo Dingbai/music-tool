@@ -82,9 +82,8 @@ const PerformanceSettings: React.FC<PerformanceSettingsProps> = ({
               (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
             }
             options={INSTRUMENTS.map((inst) => ({
-              value: inst.id,
-              label: inst.name,
-              children: inst.name,
+              value: inst.value,
+              label: inst.label,
             }))}
           />
         </div>
