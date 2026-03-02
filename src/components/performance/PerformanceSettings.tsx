@@ -24,6 +24,9 @@ const PerformanceSettings: React.FC<PerformanceSettingsProps> = ({
   onInstrumentChange,
   onRecordingModeChange,
 }) => {
+  // 未开始播放时禁用所有设置
+  const isDisabled = !isActive;
+
   return (
     <Card size="small" title={<><SettingOutlined /> 练习设置</>}>
       <Space direction="vertical" style={{ width: '100%' }} size="middle">
@@ -38,7 +41,7 @@ const PerformanceSettings: React.FC<PerformanceSettingsProps> = ({
           <Select
             value={isRecordingMode ? 'recording' : 'browsing'}
             onChange={(value) => onRecordingModeChange(value === 'recording')}
-            disabled={isActive}
+            disabled={isDisabled}
             style={{ width: '100%' }}
             options={[
               { value: 'browsing', label: '👀 浏览模式 - 仅播放和观看' },
@@ -57,7 +60,7 @@ const PerformanceSettings: React.FC<PerformanceSettingsProps> = ({
             max={200}
             value={bpm}
             onChange={onBpmChange}
-            disabled={isActive}
+            disabled={isDisabled}
             marks={{
               40: '慢',
               80: '中',
@@ -75,7 +78,7 @@ const PerformanceSettings: React.FC<PerformanceSettingsProps> = ({
           <Select
             value={instrument}
             onChange={onInstrumentChange}
-            disabled={isActive}
+            disabled={isDisabled}
             style={{ width: '100%' }}
             showSearch
             filterOption={(input, option) =>
@@ -89,7 +92,7 @@ const PerformanceSettings: React.FC<PerformanceSettingsProps> = ({
         </div>
 
         <div style={{ fontSize: 12, color: '#999', marginTop: 8 }}>
-          💡 提示：开始练习后无法更改设置，请先停止练习
+          💡 提示：点击"开始练习/播放"按钮后，设置将自动应用
         </div>
       </Space>
     </Card>

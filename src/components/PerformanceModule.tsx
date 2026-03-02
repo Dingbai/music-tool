@@ -527,11 +527,14 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
             />
             <span>
               <AudioOutlined /> 音色：
-              {INSTRUMENTS.find((i) => i.id === instrument)?.name || '未知'}
+              {INSTRUMENTS.find((i) => i.value === instrument)?.label || '未知'}
             </span>
             <span>
               <BookOutlined /> BPM: {bpm}
             </span>
+            {!isActive && (
+              <Tag color="orange">⚠ 请先设置上方参数，再点击开始</Tag>
+            )}
           </Space>
 
           <Space style={{ float: 'right' }}>
@@ -541,7 +544,7 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
             <Button
               icon={<BookOutlined />}
               onClick={() => setIsLibraryVisible(true)}
-              disabled={isActive}
+              disabled={!isActive}
             >
               曲库
             </Button>
@@ -553,7 +556,7 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
         <div ref={audioRef} />
 
         {/* 操作按钮 */}
-        <div style={{ textAlign: 'center' }}>
+        <div style={{ textAlign: 'center', marginBottom: 16 }}>
           {!isActive ? (
             <Button
               type='primary'
@@ -562,7 +565,7 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
               onClick={setupAudio}
               loading={loading}
             >
-              开始{isRecordingMode ? '练习' : '播放'}
+              ▶ 开始{isRecordingMode ? '练习' : '播放'}（请先设置上方参数）
             </Button>
           ) : (
             <Button
