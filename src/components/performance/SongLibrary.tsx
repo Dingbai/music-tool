@@ -1,16 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, Table, Tag, Input, Space, Typography, Empty, Tabs, Button, Upload } from 'antd';
+import React, { useState } from 'react';
+import {
+  Modal,
+  Table,
+  Tag,
+  Input,
+  Space,
+  Typography,
+  Empty,
+  Tabs,
+  Button,
+  Upload,
+} from 'antd';
 import {
   SearchOutlined,
   UserOutlined,
   ExportOutlined,
   ImportOutlined,
-  DeleteOutlined,
   BookOutlined,
+  // MusicOutlined,
 } from '@ant-design/icons';
 import { songLibrary, type Song } from '../../data/songLibrary';
 import type { UserSong } from '../../db/musicDb';
-import type { UploadFile } from 'antd';
 
 const { Text } = Typography;
 
@@ -82,9 +92,9 @@ const SongLibrary: React.FC<SongLibraryProps> = ({
       title: '曲名',
       dataIndex: 'title',
       key: 'title',
-      render: (title: string, record: Song) => (
+      render: (title: string) => (
         <Space>
-          <MusicOutlined style={{ color: '#1890ff' }} />
+          {/* <MusicOutlined style={{ color: '#1890ff' }} /> */}
           <Text strong>{title}</Text>
         </Space>
       ),
@@ -94,7 +104,7 @@ const SongLibrary: React.FC<SongLibraryProps> = ({
       dataIndex: 'artist',
       key: 'artist',
       render: (artist: string) => (
-        <Text type="secondary">{artist || '未知'}</Text>
+        <Text type='secondary'>{artist || '未知'}</Text>
       ),
     },
     {
@@ -102,9 +112,7 @@ const SongLibrary: React.FC<SongLibraryProps> = ({
       dataIndex: 'key',
       key: 'key',
       width: 60,
-      render: (key: string) => (
-        <Tag color="blue">{key}</Tag>
-      ),
+      render: (key: string) => <Tag color='blue'>{key}</Tag>,
     },
     {
       title: '难度',
@@ -112,7 +120,15 @@ const SongLibrary: React.FC<SongLibraryProps> = ({
       key: 'difficulty',
       width: 80,
       render: (difficulty: string) => (
-        <Tag color={difficulty === '简单' ? 'green' : difficulty === '中等' ? 'orange' : 'red'}>
+        <Tag
+          color={
+            difficulty === '简单'
+              ? 'green'
+              : difficulty === '中等'
+                ? 'orange'
+                : 'red'
+          }
+        >
           {difficulty}
         </Tag>
       ),
@@ -128,9 +144,9 @@ const SongLibrary: React.FC<SongLibraryProps> = ({
       width: 80,
       render: (_: unknown, record: UserSong) => (
         <Button
-          type="link"
+          type='link'
           danger
-          size="small"
+          size='small'
           onClick={(e) => {
             e.stopPropagation();
             if (record.id && onDeleteUserSong) {
@@ -157,9 +173,9 @@ const SongLibrary: React.FC<SongLibraryProps> = ({
       width={800}
     >
       {/* 搜索框 */}
-      <Space style={{ marginBottom: 16 }} size="large">
+      <Space style={{ marginBottom: 16 }} size='large'>
         <Input
-          placeholder="搜索曲目..."
+          placeholder='搜索曲目...'
           prefix={<SearchOutlined />}
           value={searchKeyword}
           onChange={(e) => setSearchKeyword(e.target.value)}
@@ -172,7 +188,7 @@ const SongLibrary: React.FC<SongLibraryProps> = ({
             导出曲谱
           </Button>
           <Upload
-            accept=".json"
+            accept='.json'
             showUploadList={false}
             beforeUpload={handleImport}
           >
@@ -206,7 +222,7 @@ const SongLibrary: React.FC<SongLibraryProps> = ({
                   })}
                 />
               ) : (
-                <Empty description="没有找到匹配的曲目" />
+                <Empty description='没有找到匹配的曲目' />
               ),
           },
           {
@@ -220,7 +236,7 @@ const SongLibrary: React.FC<SongLibraryProps> = ({
               filteredUserSongs.length > 0 ? (
                 <Table
                   dataSource={filteredUserSongs}
-                  rowKey="id"
+                  rowKey='id'
                   columns={userColumns}
                   pagination={{ pageSize: 10 }}
                   onRow={(record) => ({
@@ -229,14 +245,14 @@ const SongLibrary: React.FC<SongLibraryProps> = ({
                   })}
                 />
               ) : (
-                <Empty description="暂无用户曲谱，可以导入或创建新曲谱" />
+                <Empty description='暂无用户曲谱，可以导入或创建新曲谱' />
               ),
           },
         ]}
       />
 
       <div style={{ marginTop: 16, textAlign: 'center' }}>
-        <Text type="secondary">点击曲目即可加载到练习模式</Text>
+        <Text type='secondary'>点击曲目即可加载到练习模式</Text>
       </div>
     </Modal>
   );

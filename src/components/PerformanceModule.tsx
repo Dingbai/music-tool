@@ -58,6 +58,7 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
   } | null>(null);
   const [loading, setLoading] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [showPlayerControls, setShowPlayerControls] = useState(false);
 
   // --- 曲库相关状态 ---
   const [isLibraryVisible, setIsLibraryVisible] = useState(false);
@@ -275,7 +276,7 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
 
       // 移除当前光标高亮，但保留已播放音符的背景色
       const cursor = paperRef.current?.querySelector('.abcjs-cursor');
-      
+
       // 为当前音符添加高亮（光标位置）
       const lastSelection =
         paperRef.current?.querySelectorAll('.abcjs-highlight');
@@ -314,10 +315,11 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
       if (cursor) {
         cursor.remove();
       }
-      
+
       // 可选：播放结束后清除已播放标记
       // 如果想保留已播放标记直到用户停止，可以注释掉下面的代码
-      const playedElements = paperRef.current?.querySelectorAll('.abcjs-played');
+      const playedElements =
+        paperRef.current?.querySelectorAll('.abcjs-played');
       playedElements?.forEach((el) => el.classList.remove('abcjs-played'));
     },
   };
@@ -396,6 +398,7 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
       }
 
       setIsActive(true);
+      setShowPlayerControls(true);
     } catch (err) {
       console.error('Setup failed:', err);
     } finally {
@@ -409,16 +412,17 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
       (synthControlRef.current as any).pause();
     }
     if (requestRef.current) cancelAnimationFrame(requestRef.current);
-    
+
     // 清除已播放标记
     const playedElements = paperRef.current?.querySelectorAll('.abcjs-played');
     playedElements?.forEach((el) => el.classList.remove('abcjs-played'));
-    
+
     if (isRecordingMode) {
       generateReport();
       setShowReport(true);
     }
     setIsActive(false);
+    setShowPlayerControls(false);
   };
 
   const generateReport = () => {
@@ -468,6 +472,39 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
     setShowReport(false);
   };
 
+  // --- 参数变化时重置 abcjs 状态 ---
+  const handleParameterChange = useCallback(() => {
+    // 如果正在播放，先停止
+    if (isActive) {
+      if (synthControlRef.current) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (synthControlRef.current as any).pause();
+      }
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+
+      // 清除已播放标记
+      const playedElements =
+        paperRef.current?.querySelectorAll('.abcjs-played');
+      playedElements?.forEach((el) => el.classList.remove('abcjs-played'));
+
+      setIsActive(false);
+      setShowPlayerControls(false);
+    }
+    // 重置 synthControlRef，这样下次播放时会重新初始化
+    if (synthControlRef.current) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (synthControlRef.current as any).disable();
+      synthControlRef.current = null;
+    }
+    // 清除光标和已播放标记
+    const cursor = paperRef.current?.querySelector('.abcjs-cursor');
+    if (cursor) {
+      cursor.remove();
+    }
+    const playedElements = paperRef.current?.querySelectorAll('.abcjs-played');
+    playedElements?.forEach((el) => el.classList.remove('abcjs-played'));
+  }, [isActive]);
+
   // --- 乐谱渲染 ---
   useEffect(() => {
     if (paperRef.current) {
@@ -509,7 +546,7 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
 
   return (
     <Card variant='borderless'>
-      <Space direction='vertical' size='middle' style={{ width: '100%' }}>
+      <Space orientation='vertical' size='middle' style={{ width: '100%' }}>
         {/* 顶部状态栏 */}
         <div
           style={{
@@ -518,7 +555,7 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
             borderRadius: '8px',
           }}
         >
-          <Space split={<span style={{ color: '#d9d9d9' }}>|</span>}>
+          <Space separator={<span style={{ color: '#d9d9d9' }}>|</span>}>
             <Badge
               count={isRecordingMode ? '练习模式' : '播放模式'}
               style={{
@@ -532,9 +569,9 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
             <span>
               <BookOutlined /> BPM: {bpm}
             </span>
-            {!isActive && (
-              <Tag color="orange">⚠ 请先设置上方参数，再点击开始</Tag>
-            )}
+            {/* {!isActive && (
+              <Tag color='orange'>⚠ 请先设置下方参数，再点击开始</Tag>
+            )} */}
           </Space>
 
           <Space style={{ float: 'right' }}>
@@ -544,7 +581,6 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
             <Button
               icon={<BookOutlined />}
               onClick={() => setIsLibraryVisible(true)}
-              disabled={!isActive}
             >
               曲库
             </Button>
@@ -553,8 +589,10 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
 
         {/* 乐谱和播放器 */}
         <div ref={paperRef} />
-        <div ref={audioRef} />
-
+        <div
+          ref={audioRef}
+          style={{ display: showPlayerControls ? 'block' : 'none' }}
+        />
         {/* 操作按钮 */}
         <div style={{ textAlign: 'center', marginBottom: 16 }}>
           {!isActive ? (
@@ -565,7 +603,7 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
               onClick={setupAudio}
               loading={loading}
             >
-              ▶ 开始{isRecordingMode ? '练习' : '播放'}（请先设置上方参数）
+              ▶ 开始{isRecordingMode ? '练习' : '播放'}（请先设置下方参数）
             </Button>
           ) : (
             <Button
@@ -579,7 +617,6 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
             </Button>
           )}
         </div>
-
         {/* 设置和统计 */}
         <div
           style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}
@@ -592,6 +629,7 @@ const PerformanceModule: React.FC<PerformanceModuleProps> = ({
             onBpmChange={setBpm}
             onInstrumentChange={setInstrument}
             onRecordingModeChange={setIsRecordingMode}
+            onParameterChange={handleParameterChange}
           />
 
           <PerformanceStats

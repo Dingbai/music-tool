@@ -13,6 +13,7 @@ interface PerformanceSettingsProps {
   onBpmChange: (bpm: number) => void;
   onInstrumentChange: (instrument: number) => void;
   onRecordingModeChange: (enabled: boolean) => void;
+  onParameterChange?: () => void;
 }
 
 const PerformanceSettings: React.FC<PerformanceSettingsProps> = ({
@@ -23,13 +24,14 @@ const PerformanceSettings: React.FC<PerformanceSettingsProps> = ({
   onBpmChange,
   onInstrumentChange,
   onRecordingModeChange,
+  onParameterChange,
 }) => {
-  // 未开始播放时禁用所有设置
-  const isDisabled = !isActive;
+  // 开始播放后禁用所有设置
+  const isDisabled = isActive;
 
   return (
     <Card size="small" title={<><SettingOutlined /> 练习设置</>}>
-      <Space direction="vertical" style={{ width: '100%' }} size="middle">
+      <Space orientation="vertical" style={{ width: '100%' }} size="middle">
         {/* 录音模式开关 */}
         <div>
           <div style={{ marginBottom: 8 }}>
@@ -40,7 +42,10 @@ const PerformanceSettings: React.FC<PerformanceSettingsProps> = ({
           </div>
           <Select
             value={isRecordingMode ? 'recording' : 'browsing'}
-            onChange={(value) => onRecordingModeChange(value === 'recording')}
+            onChange={(value) => {
+              onRecordingModeChange(value === 'recording');
+              onParameterChange?.();
+            }}
             disabled={isDisabled}
             style={{ width: '100%' }}
             options={[
@@ -59,7 +64,10 @@ const PerformanceSettings: React.FC<PerformanceSettingsProps> = ({
             min={40}
             max={200}
             value={bpm}
-            onChange={onBpmChange}
+            onChange={(val) => {
+              onBpmChange(val);
+              onParameterChange?.();
+            }}
             disabled={isDisabled}
             marks={{
               40: '慢',
@@ -77,7 +85,10 @@ const PerformanceSettings: React.FC<PerformanceSettingsProps> = ({
           </div>
           <Select
             value={instrument}
-            onChange={onInstrumentChange}
+            onChange={(val) => {
+              onInstrumentChange(val);
+              onParameterChange?.();
+            }}
             disabled={isDisabled}
             style={{ width: '100%' }}
             showSearch

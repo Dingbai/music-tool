@@ -128,7 +128,7 @@ const PracticeHistory: React.FC<PracticeHistoryProps> = ({
 
       <Divider />
 
-      <Space direction="vertical" style={{ width: '100%' }} size="small">
+      <Space orientation="vertical" style={{ width: '100%' }} size="small">
         <Text type="secondary" style={{ fontSize: 12 }}>
           <TrophyOutlined style={{ marginRight: 4 }} />
           练习记录会自动保存，最多显示最近 50 条记录

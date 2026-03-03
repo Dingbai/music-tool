@@ -500,7 +500,7 @@ const EditorModule: React.FC<EditorModuleProps> = ({ abcText, setAbcText }) => {
           )}
         </div>
         <Divider />
-        <Space direction='vertical' style={{ width: '100%' }} size='small'>
+        <Space orientation='vertical' style={{ width: '100%' }} size='small'>
           <Text type='secondary' style={{ fontSize: 12 }}>
             提示：曲谱保存在本地浏览器中，清除浏览器数据会丢失
           </Text>
